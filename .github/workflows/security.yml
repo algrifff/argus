@@ -12,6 +12,10 @@ on:
         description: Fail on dependency vulnerabilities at or above this level (low, moderate, high, critical).
         type: string
         default: "high"
+      bun-version:
+        description: Bun version for repos with a bun.lock or bun.lockb, e.g. "1.4".
+        type: string
+        default: "latest"
 
 permissions:
   contents: read
@@ -41,13 +45,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Scan
         env:
           CONFIGS: ${{ inputs.semgrep-config }}
+          BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           set --
           for c in $CONFIGS; do set -- "$@" --config "$c"; done
+          # On a PR, fail only on findings the PR adds, so old findings don't block every PR.
+          if [ -n "$BASE" ]; then
+            git config --global --add safe.directory "$PWD"
+            set -- "$@" --baseline-commit "$BASE"
+          fi
           semgrep scan "$@" --error --metrics off
 
   dependencies:
@@ -58,11 +69,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - if: hashFiles('bun.lock', 'bun.lockb') != ''
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ inputs.bun-version }}
       - name: Audit
         env:
           LEVEL: ${{ inputs.audit-level }}
         run: |
-          if [ -f pnpm-lock.yaml ]; then
+          if [ -f bun.lock ] || [ -f bun.lockb ]; then
+            # bun audit has no production-only flag, so dev dependencies count too.
+            bun audit --audit-level="$LEVEL"
+          elif [ -f pnpm-lock.yaml ]; then
             pm=$(node -p "require('./package.json').packageManager?.split('+')[0] ?? 'pnpm'")
             npx -y "$pm" audit --prod --audit-level "$LEVEL"
           elif [ -f package-lock.json ]; then
