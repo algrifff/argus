@@ -16,7 +16,7 @@ for brief in review-agents/*.md; do
   case "$effort" in low|medium|high|xhigh|max) ;; *) problems+=("effort must be low, medium, high, xhigh or max") ;; esac
   [[ -z "$turns" || "$turns" =~ ^[0-9]+$ ]] || problems+=("max-turns must be a number")
   if [ ${#problems[@]} -gt 0 ]; then
-    echo "::error file=$brief::$(IFS=';'; echo "${problems[*]}")"
+    echo "::error file=$brief::$(printf '%s; ' "${problems[@]}")"
     status=1
   else
     echo "$brief: $model, effort $effort, up to ${turns:-30} turns"

@@ -115,7 +115,8 @@ jobs:
         run: |
           brief=".argus/review-agents/$AGENT.md"
           if [ ! -f "$brief" ]; then
-            echo "::error::No brief for agent \"$AGENT\". Available: $(ls .argus/review-agents | grep -v '^_' | sed 's/\.md$//' | paste -sd, -)"
+            available=$(for f in .argus/review-agents/[!_]*.md; do basename "$f" .md; done | paste -sd, -)
+            echo "::error::No brief for agent \"$AGENT\". Available: $available"
             exit 1
           fi
 

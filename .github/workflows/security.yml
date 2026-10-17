@@ -46,9 +46,9 @@ jobs:
         env:
           CONFIGS: ${{ inputs.semgrep-config }}
         run: |
-          args=""
-          for c in $CONFIGS; do args="$args --config $c"; done
-          semgrep scan $args --error --metrics off
+          set --
+          for c in $CONFIGS; do set -- "$@" --config "$c"; done
+          semgrep scan "$@" --error --metrics off
 
   dependencies:
     name: dependencies (audit)
