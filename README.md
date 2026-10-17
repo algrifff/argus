@@ -7,7 +7,7 @@ Argus runs tests, lint, security scans and Claude code-review agents on every pu
 > You need: a GitHub repo, plus the [GitHub CLI](https://cli.github.com) (`gh`) and [Claude Code](https://claude.com/claude-code) (`claude`), both logged in.
 
 1. In your repo, create `.github/workflows/pr.yml` and paste in the block below.
-2. Get a Claude token and save it as a secret on the repo. Replace `<owner>/<repo>` with your repo, for example `algrifff/tripous`. Paste the token when `gh` asks for it:
+2. Get a Claude token and save it as a secret on the repo. Replace `<owner>/<repo>` with your repo. Paste the token when `gh` asks for it:
    ```sh
    claude setup-token
    gh secret set CLAUDE_CODE_OAUTH_TOKEN -R <owner>/<repo>
@@ -64,13 +64,10 @@ Optionally add a `REVIEW.md` to the repo with its own rules. The agents read it,
 
 Done:
 
-- The checks were built and tested inside [tripous](https://github.com/algrifff/tripous) (PRs #2 and #4), then moved here.
 - `checks` and `security` run green on real PRs.
-- tripous calls Argus at `@v1` ([tripous#6](https://github.com/algrifff/tripous/pull/6)).
 - Argus is public, so callers fetch the briefs without an extra token.
-- tripous has its `CLAUDE_CODE_OAUTH_TOKEN` secret set.
-- The review agents ran for real on [tripous#6](https://github.com/algrifff/tripous/pull/6). Each posted its own comment with the right model and effort. Together they took 5 to 6 turns each and about $0.60 at API prices, and found two fair low-severity issues.
-- Bun repos (`bun.lock` or `bun.lockb`) work in all three workflows. dnd-sync is the first Bun caller.
+- The review agents have run on a real PR. Each used the right model and effort, took 5 to 6 turns, and together they cost about $0.60 at API prices. They found two fair low-severity issues.
+- Bun repos (`bun.lock` or `bun.lockb`) work in all three workflows.
 - Reviews post one combined, terse comment instead of one per agent, with no inline comments. They can post as your own GitHub App for a custom name and avatar.
 
 Not done yet, in order:
