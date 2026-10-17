@@ -217,7 +217,7 @@ jobs:
     needs: [plan, review]
     if: ${{ always() && !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     permissions:
       contents: read
       pull-requests: write
@@ -229,13 +229,13 @@ jobs:
           merge-multiple: true
 
       # Posting as a GitHub App shows its name and avatar instead of github-actions.
+      # The token gets all the app's permissions: Pull requests to post, and Checks to read the PR's checks.
       - if: inputs.app-client-id != '' && hashFiles('reports/*.md') != ''
         id: app
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ inputs.app-client-id }}
           private-key: ${{ secrets.ARGUS_APP_PRIVATE_KEY }}
-          permission-pull-requests: write
 
       - name: Post the comment
         env:
@@ -251,17 +251,75 @@ jobs:
             exit 0
           fi
 
+          # Wait up to 10 minutes for the PR's other checks, leaving out this review's own jobs.
+          # Without the Checks permission the comment leaves checks out and doesn't call the PR merge ready.
+          own=$(jq -c '. + ["plan", "comment"]' <<< "$AGENTS")
+          checks=""
+          for _ in $(seq 60); do
+            if ! runs=$(gh api "repos/$REPO/commits/$HEAD/check-runs?per_page=100"); then
+              echo "::notice::Can't read this PR's checks. Give the Argus app the Checks: Read permission to include them."
+              checks=""
+              break
+            fi
+            checks=$(jq --argjson own "$own" \
+              '[.check_runs[] | select((.name | split(" / ") | last) as $n | any($own[]; . == $n) | not)]' <<< "$runs")
+            [ "$(jq 'map(select(.status != "completed")) | length' <<< "$checks")" = 0 ] && break
+            sleep 10
+          done
+
+          ok='IN("success", "neutral", "skipped")'
+          if [ -n "$checks" ]; then
+            total=$(jq length <<< "$checks")
+            passed=$(jq "map(select(.conclusion | $ok)) | length" <<< "$checks")
+            pending=$(jq 'map(select(.status != "completed")) | length' <<< "$checks")
+            failed=$(jq -r "map(select(.status == \"completed\" and (.conclusion | $ok | not))) | map(\"[\(.name)](\(.html_url))\") | join(\", \")" <<< "$checks")
+          fi
+
+          # Agents with no findings are left out. Only the finding bullets are kept, so the comment stays short.
+          findings="" incomplete=()
+          while read -r agent; do
+            report="reports/$agent.md"
+            [ -f "$report" ] || continue
+            [ "$(cat "$report")" = "No issues." ] && continue
+            if grep -q '^- \*\*\[' "$report"; then
+              findings+=$'\n'"**$agent**"$'\n'"$(grep '^- \*\*\[' "$report")"$'\n'
+            else
+              incomplete+=("$agent")
+            fi
+          done < <(jq -r '.[]' <<< "$AGENTS")
+          count() { printf '%s\n' "$findings" | grep -c "^- \*\*\[$1\]" || true; }
+          high=$(count high) medium=$(count medium) low=$(count low)
+
+          review=""
+          [ "$high" -gt 0 ] && review+=", $high high"
+          [ "$medium" -gt 0 ] && review+=", $medium medium"
+          [ "$low" -gt 0 ] && review+=", $low low"
+          summary="review: ${review:2}"
+          [ -n "$review" ] || summary="review: no findings"
+          [ -z "$checks" ] || summary="$passed/$total checks passed · $summary"
+
+          if [ -n "$checks" ] && [ -z "$failed" ] && [ "$pending" = 0 ] \
+            && [ $((high + medium)) -eq 0 ] && [ ${#incomplete[@]} -eq 0 ]; then
+            verdict="✅ **Merge ready**"
+          elif [ -z "$checks" ] && [ $((high + medium)) -eq 0 ] && [ ${#incomplete[@]} -eq 0 ]; then
+            verdict="✅ **No blocking findings**"
+          else
+            verdict="❌ **Not ready**"
+          fi
+
           marker="<!-- argus -->"
           {
             echo "$marker"
-            while read -r agent; do
-              [ -f "reports/$agent.md" ] || continue
-              printf '**%s:** %s\n\n' "$agent" "$(cat "reports/$agent.md")"
-            done < <(jq -r '.[]' <<< "$AGENTS")
+            echo "$verdict · $summary"
+            [ -n "${failed:-}" ] && echo && echo "Failed: $failed"
+            [ "${pending:-0}" != 0 ] && echo && echo "Still running after 10 minutes: $pending checks."
+            [ ${#incomplete[@]} -gt 0 ] && echo && echo "No report from: ${incomplete[*]}. See the [run log]($RUN_URL)."
+            printf '%s\n' "$findings"
             echo "<sub>[Run log]($RUN_URL) · ${HEAD::7}</sub>"
           } > comment.md
           cat comment.md >> "$GITHUB_STEP_SUMMARY"
 
+          # One comment per PR, edited on each push instead of piling up.
           id=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
             --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -1)
           body=$(jq -Rs '{body: .}' < comment.md)

@@ -68,7 +68,7 @@ Done:
 - Argus is public, so callers fetch the briefs without an extra token.
 - The review agents have run on a real PR. Each used the right model and effort, took 5 to 6 turns, and together they cost about $0.60 at API prices. They found two fair low-severity issues.
 - Bun repos (`bun.lock` or `bun.lockb`) work in all three workflows.
-- Reviews post one combined, terse comment instead of one per agent, with no inline comments, and can post as your own GitHub App. Verified on [tripous#8](https://github.com/algrifff/tripous/pull/8): one comment from `king-argus[bot]`, edited in place on the next push, each agent done in about a minute.
+- Reviews post one combined, terse comment, with no inline comments, and can post as your own GitHub App. The comment gives a merge-ready verdict from the PR's checks and the review findings.
 
 Not done yet, in order:
 
@@ -102,7 +102,13 @@ Runs the repo's own `package.json` scripts, one check per script. Scripts the re
 
 ### `agent-review.yml`
 
-Runs one Claude review per agent in parallel, then posts all their reports as one short PR comment, edited on each push. It's advisory: it never fails the PR because of what it finds. It skips draft PRs.
+Runs one Claude review per agent in parallel, then posts one short PR comment, edited on each push:
+
+```
+✅ **Merge ready** · 9/9 checks passed · review: no findings
+```
+
+When something is wrong it says so, lists the failed checks, and gives one line per review finding. A PR is merge ready when every other check passed and the review found nothing high or medium. Low findings are listed but don't block. The checks part needs the GitHub App below with **Checks: Read**; without it, the comment covers only the review. Argus never merges anything, and never fails the PR because of what the review finds. It skips draft PRs.
 
 | Input | Default | What it is |
 | --- | --- | --- |
@@ -122,9 +128,9 @@ Runs one Claude review per agent in parallel, then posts all their reports as on
 
 By default the comment comes from `github-actions`. To give it your own name and picture, create a GitHub App once and post as it. One app works for all your repos.
 
-1. **Create the app.** This link fills in the form: <https://github.com/settings/apps/new?description=Claude%20PR%20reviews&url=https://github.com/algrifff/argus&public=false&webhook_active=false&pull_requests=write>
+1. **Create the app.** This link fills in the form: <https://github.com/settings/apps/new?description=Claude%20PR%20reviews&url=https://github.com/algrifff/argus&public=false&webhook_active=false&pull_requests=write&checks=read>
    - **GitHub App name:** the name shown on comments, as `<name> [bot]`. Names are unique across GitHub, so pick another if it's taken.
-   - Check that **Webhook → Active** is off and **Repository permissions → Pull requests** is **Read and write**. Leave the rest at No access.
+   - Check that **Webhook → Active** is off. Under **Repository permissions**, set **Pull requests** to **Read and write** and **Checks** to **Read-only**. Leave the rest at No access.
    - Click **Create GitHub App**.
 2. **Set the avatar.** On the app's **General** page, upload a square image under **Display information**.
 3. **Get the ID and key.** In the app's left sidebar, open **Credentials**. Copy the **Client ID** (it starts with `Iv23`). Under **Key pairs**, click **New key**, and a `.pem` file downloads.
@@ -153,6 +159,8 @@ By default the comment comes from `github-actions`. To give it your own name and
    ```
 
 If the "Create GitHub App Token" step fails, the app usually isn't installed on that repo, the ID and key are from different apps, or the app can't write to pull requests.
+
+To add a permission to an app you already made, open the app's **Permissions & events** page, change it and save. Then accept the new permission under **Settings → Applications → Installed GitHub Apps → Configure**. GitHub also emails you a link.
 
 ## The agents
 
