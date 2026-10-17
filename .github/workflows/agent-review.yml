@@ -240,6 +240,7 @@ jobs:
       - name: Post the comment
         env:
           GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
           AGENTS: ${{ needs.plan.outputs.agents }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
@@ -319,9 +320,20 @@ jobs:
           } > comment.md
           cat comment.md >> "$GITHUB_STEP_SUMMARY"
 
-          # One comment per PR, edited on each push instead of piling up.
-          id=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
-            --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -1)
+          # One comment per PR, edited on each push instead of piling up. An Argus comment from
+          # another poster, such as github-actions before the app was set up, is replaced so the
+          # comment shows the current name and avatar.
+          me="${APP_SLUG:-github-actions}[bot]"
+          id=""
+          while read -r cid login; do
+            if [ "$login" = "$me" ] && [ -z "$id" ]; then
+              id=$cid
+            else
+              gh api -X DELETE "repos/$REPO/issues/comments/$cid" > /dev/null \
+                || echo "::warning::Couldn't delete the old Argus comment $cid."
+            fi
+          done < <(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            --jq ".[] | select(.body | startswith(\"$marker\")) | \"\(.id) \(.user.login)\"")
           body=$(jq -Rs '{body: .}' < comment.md)
           if [ -n "$id" ]; then
             gh api -X PATCH "repos/$REPO/issues/comments/$id" --input - <<< "$body" > /dev/null
