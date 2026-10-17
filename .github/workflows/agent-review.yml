@@ -290,12 +290,13 @@ jobs:
           count() { printf '%s\n' "$findings" | grep -c "^- \*\*\[$1\]" || true; }
           high=$(count high) medium=$(count medium) low=$(count low)
 
-          summary=()
-          [ -n "$checks" ] && summary+=("$passed/$total checks passed")
-          severities=()
-          for s in high medium low; do [ "${!s}" -gt 0 ] && severities+=("${!s} $s"); done
-          if [ ${#severities[@]} -eq 0 ]; then summary+=("review: no findings")
-          else summary+=("review: $(IFS=,; echo "${severities[*]}" | sed 's/,/, /g')"); fi
+          review=""
+          [ "$high" -gt 0 ] && review+=", $high high"
+          [ "$medium" -gt 0 ] && review+=", $medium medium"
+          [ "$low" -gt 0 ] && review+=", $low low"
+          summary="review: ${review:2}"
+          [ -n "$review" ] || summary="review: no findings"
+          [ -z "$checks" ] || summary="$passed/$total checks passed · $summary"
 
           if [ -n "$checks" ] && [ -z "$failed" ] && [ "$pending" = 0 ] \
             && [ $((high + medium)) -eq 0 ] && [ ${#incomplete[@]} -eq 0 ]; then
@@ -309,7 +310,7 @@ jobs:
           marker="<!-- argus -->"
           {
             echo "$marker"
-            echo "$verdict · $(IFS='|'; echo "${summary[*]}" | sed 's/|/ · /g')"
+            echo "$verdict · $summary"
             [ -n "${failed:-}" ] && echo && echo "Failed: $failed"
             [ "${pending:-0}" != 0 ] && echo && echo "Still running after 10 minutes: $pending checks."
             [ ${#incomplete[@]} -gt 0 ] && echo && echo "No report from: ${incomplete[*]}. See the [run log]($RUN_URL)."
