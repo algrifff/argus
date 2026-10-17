@@ -37,9 +37,7 @@ on:
         description: From `claude setup-token`. Uses your Claude subscription. Set this or ANTHROPIC_API_KEY.
         required: false
       ANTHROPIC_API_KEY:
-        required: false
-      ARGUS_TOKEN:
-        description: Lets the caller read the briefs while Argus is private. A fine-grained token with Contents read on algrifff/argus. Not needed if Argus is public.
+        description: Pays per token instead of using a subscription.
         required: false
 
 permissions:
@@ -97,7 +95,6 @@ jobs:
         with:
           repository: ${{ inputs.argus-repository || github.repository }}
           ref: ${{ inputs.argus-ref || github.sha }}
-          token: ${{ secrets.ARGUS_TOKEN || github.token }}
           path: .argus
           sparse-checkout: review-agents
           persist-credentials: false
@@ -190,6 +187,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           marker="<!-- argus:$AGENT -->"
@@ -199,7 +197,7 @@ jobs:
             echo
             if [ -s "$REPORT" ]; then cat "$REPORT"; else echo "The agent didn't write a report. See the [run log]($RUN_URL)."; fi
             echo
-            echo "<sub>[Run log]($RUN_URL) · updated for ${GITHUB_SHA::7}</sub>"
+            echo "<sub>[Run log]($RUN_URL) · updated for ${HEAD::7}</sub>"
           } > "$RUNNER_TEMP/comment.md"
           cat "$RUNNER_TEMP/comment.md" >> "$GITHUB_STEP_SUMMARY"
 

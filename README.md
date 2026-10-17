@@ -12,22 +12,20 @@ Done:
 
 - The checks were built and tested inside [tripous](https://github.com/algrifff/tripous) (PRs #2 and #4), then moved here.
 - `checks` and `security` run green on real PRs.
-- tripous calls Argus at `@v1`.
+- tripous calls Argus at `@v1` ([tripous#6](https://github.com/algrifff/tripous/pull/6)).
+- Argus is public, so callers fetch the briefs without an extra token.
+- tripous has its `CLAUDE_CODE_OAUTH_TOKEN` secret set.
 
 Not done yet, in order:
 
-1. **Set the Claude token on each repo that uses Argus.** Without it the review agents skip with a warning, so **they have never run for real**. Run `claude setup-token`, copy the token it prints, then run `gh secret set CLAUDE_CODE_OAUTH_TOKEN -R algrifff/<repo>` and paste the token when it asks.
-2. **Give callers access to the briefs.** Argus is private, so a caller can't fetch `review-agents/` with its own token, and the review job fails at "Fetch the agent briefs". Pick one:
-   - Make Argus public (`gh repo edit algrifff/argus --visibility public --accept-visibility-change-consequences`). Nothing in it is secret: it holds workflows and prompts. You won't need any token.
-   - Or keep it private. Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new) with access to `algrifff/argus` only and **Contents: Read-only**. Save it in each caller as `ARGUS_TOKEN` (`gh secret set ARGUS_TOKEN -R algrifff/<repo>`).
-3. **Watch the first real review on a tripous PR.** Check:
+1. **Watch the first real review on a tripous PR.** The review agents have never run for real. Check:
    - Each agent posts one comment headed `Argus: <agent>`, and the comment is edited rather than duplicated on the next push.
    - The "Build the prompt" step's notice shows the right model and effort.
    - Inline comments land on the right lines.
    - Check usage on your Claude plan.
 
    The parts most likely to need fixing are the ones never exercised in CI: `claude-code-action` running with this prompt, the inline-comment tool, and `--effort` being accepted.
-4. **Tune the briefs** from what the first reviews get wrong: too noisy, missing things, or too costly.
+2. **Tune the briefs** from what the first reviews get wrong: too noisy, missing things, or too costly.
 
 Ideas for later: checks for other stacks (for example a `python-checks.yml`), an option for high-severity findings to fail the PR, and uploading the adversarial agent's tests as a build artifact.
 
@@ -66,12 +64,14 @@ jobs:
       agents: security,adversarial,standards
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-      ARGUS_TOKEN: ${{ secrets.ARGUS_TOKEN }}
 ```
 
 Leave out any job the repo doesn't need. Then:
 
-- Set the secrets (see [Status](#status-and-next-steps), steps 1 and 2).
+- Set the Claude token on the repo: run `claude setup-token`, then `gh secret set CLAUDE_CODE_OAUTH_TOKEN -R <owner>/<repo>` and paste the token. Each repo uses its own token, so reviews count against that owner's plan. Without a token the review skips with a warning.
+  - GitHub only gives a repo's secrets to workflows running in that repo, so other repos using Argus can't see your token.
+  - Anyone with write access to your repo can use the token. PRs from forks don't get it, so the review skips on those.
+  - Argus code runs with your token whenever `v1` moves. Review changes from other contributors before you release them.
 - Optionally add a `REVIEW.md` to the repo with its own rules. The agents read it, along with `CLAUDE.md` and `AGENTS.md`, and follow it over their general briefs.
 
 ## The checks
@@ -109,7 +109,6 @@ Runs one Claude review per agent and posts one PR comment per agent, edited on e
 | Secret | |
 | --- | --- |
 | `CLAUDE_CODE_OAUTH_TOKEN` | From `claude setup-token`. Uses your Claude subscription. Or set `ANTHROPIC_API_KEY` to pay per token |
-| `ARGUS_TOKEN` | Only while Argus is private. See [Status](#status-and-next-steps), step 2 |
 
 ## The agents
 
@@ -149,10 +148,6 @@ git tag -f v1 && git push -f origin v1
 ```
 
 For a change that breaks callers, such as a renamed or removed input or a changed secret, tag `v2` instead. Update the callers' `uses:` and `argus-ref` lines yourself.
-
-## Private repo access
-
-So that other repos can call these workflows while Argus is private, go to **Settings → Actions → General → Access** and choose "Accessible from repositories owned by the user 'algrifff'". This is already set. That setting covers the workflows only. Fetching the briefs needs `ARGUS_TOKEN` or a public repo.
 
 ## Repo layout
 
