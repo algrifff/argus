@@ -15,17 +15,16 @@ Done:
 - tripous calls Argus at `@v1` ([tripous#6](https://github.com/algrifff/tripous/pull/6)).
 - Argus is public, so callers fetch the briefs without an extra token.
 - tripous has its `CLAUDE_CODE_OAUTH_TOKEN` secret set.
+- The review agents ran for real on [tripous#6](https://github.com/algrifff/tripous/pull/6). Each posted one comment with the right model and effort. Together they took 5 to 6 turns each and about $0.60 at API prices, and found two fair low-severity issues.
 
 Not done yet, in order:
 
-1. **Watch the first real review on a tripous PR.** The review agents have never run for real. Check:
-   - Each agent posts one comment headed `Argus: <agent>`, and the comment is edited rather than duplicated on the next push.
-   - The "Build the prompt" step's notice shows the right model and effort.
+1. **Watch reviews on a PR with real code changes.** So far they've only reviewed a config-and-docs PR, and none left an inline comment. Check:
+   - The comment is edited, not duplicated, on the next push.
    - Inline comments land on the right lines.
-   - Check usage on your Claude plan.
-
-   The parts most likely to need fixing are the ones never exercised in CI: `claude-code-action` running with this prompt, the inline-comment tool, and `--effort` being accepted.
-2. **Tune the briefs** from what the first reviews get wrong: too noisy, missing things, or too costly.
+   - The adversarial agent writes and runs tests under `argus-scratch/` when it suspects a bug.
+   - Usage on your Claude plan stays reasonable for bigger diffs.
+2. **Tune the briefs** from what the reviews get wrong: too noisy, missing things, or too costly.
 
 Ideas for later: checks for other stacks (for example a `python-checks.yml`), an option for high-severity findings to fail the PR, and uploading the adversarial agent's tests as a build artifact.
 
