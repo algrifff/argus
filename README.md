@@ -15,14 +15,14 @@ Done:
 - tripous calls Argus at `@v1` ([tripous#6](https://github.com/algrifff/tripous/pull/6)).
 - Argus is public, so callers fetch the briefs without an extra token.
 - tripous has its `CLAUDE_CODE_OAUTH_TOKEN` secret set.
-- The review agents ran for real on [tripous#6](https://github.com/algrifff/tripous/pull/6). Each posted one comment with the right model and effort. Together they took 5 to 6 turns each and about $0.60 at API prices, and found two fair low-severity issues.
+- The review agents ran for real on [tripous#6](https://github.com/algrifff/tripous/pull/6). Each posted its own comment with the right model and effort. Together they took 5 to 6 turns each and about $0.60 at API prices, and found two fair low-severity issues.
 - Bun repos (`bun.lock` or `bun.lockb`) work in all three workflows. dnd-sync is the first Bun caller.
+- Reviews post one combined, terse comment instead of one per agent, with no inline comments. They can post as your own GitHub App for a custom name and avatar.
 
 Not done yet, in order:
 
-1. **Watch reviews on a PR with real code changes.** So far they've only reviewed a config-and-docs PR, and none left an inline comment. Check:
-   - The comment is edited, not duplicated, on the next push.
-   - Inline comments land on the right lines.
+1. **Watch reviews on a PR with real code changes.** So far they've only reviewed a config-and-docs PR. Check:
+   - The single Argus comment is edited, not duplicated, on the next push, and stays short.
    - The adversarial agent writes and runs tests under `argus-scratch/` when it suspects a bug.
    - Usage on your Claude plan stays reasonable for bigger diffs.
 2. **Tune the briefs** from what the reviews get wrong: too noisy, missing things, or too costly.
@@ -97,7 +97,7 @@ Runs the repo's own `package.json` scripts, one check per script. Scripts the re
 
 ### `agent-review.yml`
 
-Runs one Claude review per agent and posts one PR comment per agent, edited on each push. It's advisory: it never fails the PR because of what it finds. It skips draft PRs.
+Runs one Claude review per agent in parallel, then posts all their reports as one short PR comment, edited on each push. It's advisory: it never fails the PR because of what it finds. It skips draft PRs.
 
 | Input | Default | What it is |
 | --- | --- | --- |
@@ -105,11 +105,23 @@ Runs one Claude review per agent and posts one PR comment per agent, edited on e
 | `model` | (each brief's own) | Override the model for every agent, for example to try a cheaper one |
 | `effort` | (each brief's own) | Override the effort for every agent |
 | `extra-allowed-tools` | | More Claude Code tool rules, for example `Bash(cargo test:*)` |
+| `app-client-id` | | Post the comment as this GitHub App instead of `github-actions`. See [Post as "Argus"](#post-as-argus-with-your-own-avatar) |
 | `argus-repository`, `argus-ref` | `algrifff/argus`, `v1` | Where to fetch the briefs. Keep `argus-ref` in step with the `@v1` in your `uses:` line |
 
 | Secret | |
 | --- | --- |
 | `CLAUDE_CODE_OAUTH_TOKEN` | From `claude setup-token`. Uses your Claude subscription. Or set `ANTHROPIC_API_KEY` to pay per token |
+| `ARGUS_APP_PRIVATE_KEY` | Only with `app-client-id`. The app's private key |
+
+### Post as "Argus" with your own avatar
+
+By default the comment comes from `github-actions`. To give it a name and picture, post it as a GitHub App:
+
+1. Create an app at <https://github.com/settings/apps/new>. App names are unique across GitHub, so "Argus" may be taken; try something like `argus-review`. Upload your image under **Display information**. Untick **Webhook → Active**. Under **Repository permissions**, set **Pull requests** to **Read and write**.
+2. On the app's page, note the **Client ID** and click **Generate a private key**.
+3. **Install App** on the repos that use the review.
+4. In each repo: `gh secret set ARGUS_APP_PRIVATE_KEY -R <owner>/<repo> < key.pem` and `gh variable set ARGUS_APP_CLIENT_ID -R <owner>/<repo> -b <client-id>`.
+5. In the repo's `pr.yml` `review` job, add `app-client-id: ${{ vars.ARGUS_APP_CLIENT_ID }}` under `with:` and `ARGUS_APP_PRIVATE_KEY: ${{ secrets.ARGUS_APP_PRIVATE_KEY }}` under `secrets:`.
 
 ## The agents
 
@@ -121,7 +133,7 @@ Each brief in `review-agents/` is one agent. Its frontmatter sets the model and 
 | `adversarial` | Opus 5.5 | medium | 40 | Tries to break the code and proves bugs with failing tests |
 | `standards` | Sonnet 5.5 | medium | 20 | Checks the PR fits the repo's rules and patterns |
 
-`_shared.md` is added to every agent's prompt. It holds the rules they all follow and the report format.
+`_shared.md` is added to every agent's prompt. It holds the rules they all follow and the report format: `No issues.`, or one line per finding with file, line, failure and fix.
 
 ### Add an agent
 
