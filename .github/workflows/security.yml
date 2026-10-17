@@ -45,13 +45,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Scan
         env:
           CONFIGS: ${{ inputs.semgrep-config }}
+          BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           set --
           for c in $CONFIGS; do set -- "$@" --config "$c"; done
+          # On a PR, fail only on findings the PR adds, so old findings don't block every PR.
+          if [ -n "$BASE" ]; then
+            git config --global --add safe.directory "$PWD"
+            set -- "$@" --baseline-commit "$BASE"
+          fi
           semgrep scan "$@" --error --metrics off
 
   dependencies:

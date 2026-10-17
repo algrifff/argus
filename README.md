@@ -92,7 +92,7 @@ Runs the repo's own `package.json` scripts, one check per script. Scripts the re
 | Check | What it does |
 | --- | --- |
 | `secrets (gitleaks)` | Scans the PR's commits for leaked keys and tokens |
-| `code patterns (semgrep)` | Semgrep rules, `p/default` unless the `semgrep-config` input says otherwise |
+| `code patterns (semgrep)` | Semgrep rules, `p/default` unless the `semgrep-config` input says otherwise. On a PR it fails only on findings the PR adds; findings already on the base branch don't count |
 | `dependencies (audit)` | `bun audit`, `pnpm audit` or `npm audit`. Fails at the `audit-level` input (default `high`). `bun audit` can't skip dev dependencies, so they count too |
 
 ### `agent-review.yml`
