@@ -1,37 +1,18 @@
 # Argus
 
-Shared pull request checks for all my repos: tests, lint, security scans, and Claude agents that review each PR. A repo adds one small workflow file and picks the checks and agents it needs.
+Argus runs tests, lint, security scans and Claude code-review agents on every pull request (PR) in your GitHub repos. You add one workflow file to a repo and pick the checks you want.
 
-Named after Argus Panoptes, the giant with a hundred eyes who never slept on watch.
+## Quick start
 
-## Status and next steps
+> You need: a GitHub repo, plus the [GitHub CLI](https://cli.github.com) (`gh`) and [Claude Code](https://claude.com/claude-code) (`claude`), both logged in.
 
-**Read this first if you're picking up the work.** Update it when you finish something.
-
-Done:
-
-- The checks were built and tested inside [tripous](https://github.com/algrifff/tripous) (PRs #2 and #4), then moved here.
-- `checks` and `security` run green on real PRs.
-- tripous calls Argus at `@v1` ([tripous#6](https://github.com/algrifff/tripous/pull/6)).
-- Argus is public, so callers fetch the briefs without an extra token.
-- tripous has its `CLAUDE_CODE_OAUTH_TOKEN` secret set.
-- The review agents ran for real on [tripous#6](https://github.com/algrifff/tripous/pull/6). Each posted its own comment with the right model and effort. Together they took 5 to 6 turns each and about $0.60 at API prices, and found two fair low-severity issues.
-- Bun repos (`bun.lock` or `bun.lockb`) work in all three workflows. dnd-sync is the first Bun caller.
-- Reviews post one combined, terse comment instead of one per agent, with no inline comments. They can post as your own GitHub App for a custom name and avatar.
-
-Not done yet, in order:
-
-1. **Watch reviews on a PR with real code changes.** So far they've only reviewed a config-and-docs PR. Check:
-   - The single Argus comment is edited, not duplicated, on the next push, and stays short.
-   - The adversarial agent writes and runs tests under `argus-scratch/` when it suspects a bug.
-   - Usage on your Claude plan stays reasonable for bigger diffs.
-2. **Tune the briefs** from what the reviews get wrong: too noisy, missing things, or too costly.
-
-Ideas for later: checks for other stacks (for example a `python-checks.yml`), an option for high-severity findings to fail the PR, and uploading the adversarial agent's tests as a build artifact.
-
-## Use it in a repo
-
-Add `.github/workflows/pr.yml`:
+1. In your repo, create `.github/workflows/pr.yml` and paste in the block below.
+2. Get a Claude token and save it as a secret on the repo. Replace `<owner>/<repo>` with your repo, for example `algrifff/tripous`. Paste the token when `gh` asks for it:
+   ```sh
+   claude setup-token
+   gh secret set CLAUDE_CODE_OAUTH_TOKEN -R <owner>/<repo>
+   ```
+3. Commit, push and open a PR. The checks appear at the bottom of the PR, and the review agents post one comment.
 
 ```yaml
 name: pr
@@ -66,13 +47,41 @@ jobs:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
 
-Leave out any job the repo doesn't need. Then:
+Delete any job you don't want. `checks` is for Node projects: it runs your `package.json` scripts.
 
-- Set the Claude token on the repo: run `claude setup-token`, then `gh secret set CLAUDE_CODE_OAUTH_TOKEN -R <owner>/<repo>` and paste the token. Each repo uses its own token, so reviews count against that owner's plan. Without a token the review skips with a warning.
-  - GitHub only gives a repo's secrets to workflows running in that repo, so other repos using Argus can't see your token.
-  - Anyone with write access to your repo can use the token. PRs from forks don't get it, so the review skips on those.
-  - Argus code runs with your token whenever `v1` moves. Review changes from other contributors before you release them.
-- Optionally add a `REVIEW.md` to the repo with its own rules. The agents read it, along with `CLAUDE.md` and `AGENTS.md`, and follow it over their general briefs.
+Optionally add a `REVIEW.md` to the repo with its own rules. The agents read it, along with `CLAUDE.md` and `AGENTS.md`, and follow it over their general briefs.
+
+### About the Claude token
+
+- Each repo uses its own token, so reviews count against that repo owner's Claude plan. Without a token the review skips with a warning.
+- GitHub only gives a repo's secrets to workflows running in that repo, so other repos using Argus can't see your token.
+- Anyone with write access to your repo can use the token. PRs from forks don't get it, so the review skips on those.
+- Argus code runs with your token whenever `v1` moves. Review changes from other contributors before you release them.
+
+## Status and next steps
+
+**Read this first if you're picking up the work.** Update it when you finish something.
+
+Done:
+
+- The checks were built and tested inside [tripous](https://github.com/algrifff/tripous) (PRs #2 and #4), then moved here.
+- `checks` and `security` run green on real PRs.
+- tripous calls Argus at `@v1` ([tripous#6](https://github.com/algrifff/tripous/pull/6)).
+- Argus is public, so callers fetch the briefs without an extra token.
+- tripous has its `CLAUDE_CODE_OAUTH_TOKEN` secret set.
+- The review agents ran for real on [tripous#6](https://github.com/algrifff/tripous/pull/6). Each posted its own comment with the right model and effort. Together they took 5 to 6 turns each and about $0.60 at API prices, and found two fair low-severity issues.
+- Bun repos (`bun.lock` or `bun.lockb`) work in all three workflows. dnd-sync is the first Bun caller.
+- Reviews post one combined, terse comment instead of one per agent, with no inline comments. They can post as your own GitHub App for a custom name and avatar.
+
+Not done yet, in order:
+
+1. **Watch reviews on a PR with real code changes.** So far they've only reviewed a config-and-docs PR. Check:
+   - The single Argus comment is edited, not duplicated, on the next push, and stays short.
+   - The adversarial agent writes and runs tests under `argus-scratch/` when it suspects a bug.
+   - Usage on your Claude plan stays reasonable for bigger diffs.
+2. **Tune the briefs** from what the reviews get wrong: too noisy, missing things, or too costly.
+
+Ideas for later: checks for other stacks (for example a `python-checks.yml`), an option for high-severity findings to fail the PR, and uploading the adversarial agent's tests as a build artifact.
 
 ## The checks
 
@@ -175,3 +184,7 @@ scripts/check-briefs.sh
 ```
 
 Every action is pinned to a commit SHA. Dependabot keeps the pins current.
+
+## Why "Argus"
+
+Named after Argus Panoptes, the giant with a hundred eyes who never slept on watch.
