@@ -10,10 +10,9 @@ Write it to `.argus-report.md` in the repo root. It goes into one PR comment sha
 
 No findings: write exactly `No issues.` and nothing else.
 
-Findings: a count line, then one bullet per finding, most severe first:
+Findings: one bullet per finding, most severe first. Only these bullet lines are posted:
 
 ```
-1 high, 1 low.
 - **[high]** `path/to/file.ts:42` What breaks, with the input that breaks it. Fix: what to change.
 - **[low]** `path/to/other.ts:7` ... Fix: ...
 ```
