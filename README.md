@@ -16,6 +16,7 @@ Done:
 - Argus is public, so callers fetch the briefs without an extra token.
 - tripous has its `CLAUDE_CODE_OAUTH_TOKEN` secret set.
 - The review agents ran for real on [tripous#6](https://github.com/algrifff/tripous/pull/6). Each posted one comment with the right model and effort. Together they took 5 to 6 turns each and about $0.60 at API prices, and found two fair low-severity issues.
+- Bun repos (`bun.lock` or `bun.lockb`) work in all three workflows. dnd-sync is the first Bun caller.
 
 Not done yet, in order:
 
@@ -77,13 +78,14 @@ Leave out any job the repo doesn't need. Then:
 
 ### `node-checks.yml`
 
-Runs the repo's own `package.json` scripts, one check per script. Scripts the repo doesn't define are skipped, so each repo picks its own tools. It detects pnpm, yarn or npm from the lockfile.
+Runs the repo's own `package.json` scripts, one check per script. Scripts the repo doesn't define are skipped, so each repo picks its own tools. It detects bun, pnpm, yarn or npm from the lockfile.
 
 | Input | Default | What it is |
 | --- | --- | --- |
 | `scripts` | `["typecheck", "lint", "test", "build"]` | JSON list of scripts to run |
 | `node-version` | `24` | |
 | `working-directory` | `.` | For repos where `package.json` isn't at the root |
+| `bun-version` | `latest` | For Bun repos. `security.yml` and `agent-review.yml` take it too |
 
 ### `security.yml`
 
@@ -91,7 +93,7 @@ Runs the repo's own `package.json` scripts, one check per script. Scripts the re
 | --- | --- |
 | `secrets (gitleaks)` | Scans the PR's commits for leaked keys and tokens |
 | `code patterns (semgrep)` | Semgrep rules, `p/default` unless the `semgrep-config` input says otherwise |
-| `dependencies (audit)` | `pnpm audit` or `npm audit`. Fails at the `audit-level` input (default `high`) |
+| `dependencies (audit)` | `bun audit`, `pnpm audit` or `npm audit`. Fails at the `audit-level` input (default `high`). `bun audit` can't skip dev dependencies, so they count too |
 
 ### `agent-review.yml`
 
