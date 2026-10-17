@@ -68,6 +68,7 @@ Done:
 - Argus is public, so callers fetch the briefs without an extra token.
 - The review agents have run on a real PR. Each used the right model and effort, took 5 to 6 turns, and together they cost about $0.60 at API prices. They found two fair low-severity issues.
 - Bun repos (`bun.lock` or `bun.lockb`) work in all three workflows.
+- `scripts/add-repo.sh` sets up a new repo in one command once the app is installed on it.
 - Reviews post one combined, terse comment, with no inline comments, and can post as your own GitHub App. The comment gives a merge-ready verdict from the PR's checks and the review findings.
 
 Not done yet, in order:
@@ -147,7 +148,7 @@ By default the comment comes from `github-actions`. To give it your own name and
    ```sh
    gh variable set ARGUS_APP_CLIENT_ID -R <owner>/<repo> -b <client-id>
    ```
-   Then put the `.pem` in your password manager or delete it. You can make a new key at any time.
+   Keep the `.pem` somewhere safe, such as your password manager: you need it each time you add a repo. If you lose it, make a new key; old keys keep working.
 6. **Use it in `pr.yml`.** In the `review` job:
    ```yaml
        with:
@@ -161,6 +162,24 @@ By default the comment comes from `github-actions`. To give it your own name and
 If the "Create GitHub App Token" step fails, the app usually isn't installed on that repo, the ID and key are from different apps, or the app can't write to pull requests.
 
 To add a permission to an app you already made, open the app's **Permissions & events** page, change it and save. Then accept the new permission under **Settings → Applications → Installed GitHub Apps → Configure**. GitHub also emails you a link.
+
+### Add Argus to another repo
+
+Once you have the app, each new repo takes two steps:
+
+1. **Install the app on the repo.** Go to **Settings → Applications → Installed GitHub Apps**, click **Configure** next to your app, and add the repo under **Repository access**.
+2. **Run the setup script** from this repo's folder. On Windows, use Git Bash:
+   ```sh
+   bash scripts/add-repo.sh <owner>/<repo> <path-to-key.pem> <client-id>
+   ```
+
+The script:
+- Checks that the key and client ID match, and that the app is installed on the repo.
+- Asks for a Claude token if the repo doesn't have one. Run `claude setup-token` in another terminal and paste the token.
+- Saves the app key and client ID on the repo.
+- Opens a PR that adds `.github/workflows/pr.yml`. The `checks` job is only included when the repo has a `package.json`. If the repo already has a `pr.yml`, the script prints the two lines to add instead.
+
+It's safe to run again: anything already done is skipped.
 
 ## The agents
 
@@ -210,7 +229,9 @@ For a change that breaks callers, such as a renamed or removed input or a change
   agent-review.yml  # shared: Claude review agents
   ci.yml            # Argus's own checks: actionlint, brief frontmatter, security
 review-agents/      # one brief per agent, plus _shared.md
-scripts/check-briefs.sh
+scripts/
+  add-repo.sh       # sets a repo up to use Argus and the app
+  check-briefs.sh   # CI: checks brief frontmatter
 ```
 
 Every action is pinned to a commit SHA. Dependabot keeps the pins current.
