@@ -68,12 +68,11 @@ Done:
 - Argus is public, so callers fetch the briefs without an extra token.
 - The review agents have run on a real PR. Each used the right model and effort, took 5 to 6 turns, and together they cost about $0.60 at API prices. They found two fair low-severity issues.
 - Bun repos (`bun.lock` or `bun.lockb`) work in all three workflows.
-- Reviews post one combined, terse comment instead of one per agent, with no inline comments. They can post as your own GitHub App for a custom name and avatar.
+- Reviews post one combined, terse comment instead of one per agent, with no inline comments, and can post as your own GitHub App. Verified on [tripous#8](https://github.com/algrifff/tripous/pull/8): one comment from `king-argus[bot]`, edited in place on the next push, each agent done in about a minute.
 
 Not done yet, in order:
 
 1. **Watch reviews on a PR with real code changes.** So far they've only reviewed a config-and-docs PR. Check:
-   - The single Argus comment is edited, not duplicated, on the next push, and stays short.
    - The adversarial agent writes and runs tests under `argus-scratch/` when it suspects a bug.
    - Usage on your Claude plan stays reasonable for bigger diffs.
 2. **Tune the briefs** from what the reviews get wrong: too noisy, missing things, or too costly.
