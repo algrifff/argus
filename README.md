@@ -124,13 +124,39 @@ Runs one Claude review per agent in parallel, then posts all their reports as on
 
 ### Post as "Argus" with your own avatar
 
-By default the comment comes from `github-actions`. To give it a name and picture, post it as a GitHub App:
+By default the comment comes from `github-actions`. To give it your own name and picture, create a GitHub App once and post as it. One app works for all your repos.
 
-1. Create an app at <https://github.com/settings/apps/new>. App names are unique across GitHub, so "Argus" may be taken; try something like `argus-review`. Upload your image under **Display information**. Untick **Webhook → Active**. Under **Repository permissions**, set **Pull requests** to **Read and write**.
-2. On the app's page, note the **Client ID** and click **Generate a private key**.
-3. **Install App** on the repos that use the review.
-4. In each repo: `gh secret set ARGUS_APP_PRIVATE_KEY -R <owner>/<repo> < key.pem` and `gh variable set ARGUS_APP_CLIENT_ID -R <owner>/<repo> -b <client-id>`.
-5. In the repo's `pr.yml` `review` job, add `app-client-id: ${{ vars.ARGUS_APP_CLIENT_ID }}` under `with:` and `ARGUS_APP_PRIVATE_KEY: ${{ secrets.ARGUS_APP_PRIVATE_KEY }}` under `secrets:`.
+1. **Create the app.** This link fills in the form: <https://github.com/settings/apps/new?description=Claude%20PR%20reviews&url=https://github.com/algrifff/argus&public=false&webhook_active=false&pull_requests=write>
+   - **GitHub App name:** the name shown on comments, as `<name> [bot]`. Names are unique across GitHub, so pick another if it's taken.
+   - Check that **Webhook → Active** is off and **Repository permissions → Pull requests** is **Read and write**. Leave the rest at No access.
+   - Click **Create GitHub App**.
+2. **Set the avatar.** On the app's **General** page, upload a square image under **Display information**.
+3. **Get the ID and key.** In the app's left sidebar, open **Credentials**. Copy the **Client ID** (it starts with `Iv23`). Under **Key pairs**, click **New key**, and a `.pem` file downloads.
+4. **Install it.** In the left sidebar, click **Install App**, choose **Only select repositories**, and pick each repo that runs the review.
+5. **Give each repo the ID and key.** Replace `<owner>/<repo>` and the file name:
+   ```sh
+   # bash, zsh or Git Bash
+   gh secret set ARGUS_APP_PRIVATE_KEY -R <owner>/<repo> < ~/Downloads/<app>.<date>.private-key.pem
+   ```
+   ```powershell
+   # PowerShell
+   Get-Content -Raw "$env:USERPROFILE\Downloads\<app>.<date>.private-key.pem" | gh secret set ARGUS_APP_PRIVATE_KEY -R <owner>/<repo>
+   ```
+   ```sh
+   gh variable set ARGUS_APP_CLIENT_ID -R <owner>/<repo> -b <client-id>
+   ```
+   Then put the `.pem` in your password manager or delete it. You can make a new key at any time.
+6. **Use it in `pr.yml`.** In the `review` job:
+   ```yaml
+       with:
+         agents: security,adversarial,standards
+         app-client-id: ${{ vars.ARGUS_APP_CLIENT_ID }}
+       secrets:
+         CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+         ARGUS_APP_PRIVATE_KEY: ${{ secrets.ARGUS_APP_PRIVATE_KEY }}
+   ```
+
+If the "Create GitHub App Token" step fails, the app usually isn't installed on that repo, the ID and key are from different apps, or the app can't write to pull requests.
 
 ## The agents
 
