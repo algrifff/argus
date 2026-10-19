@@ -212,7 +212,7 @@ jobs:
           path: ${{ runner.temp }}/report/
           retention-days: 1
 
-  # Every agent's report goes into one comment, edited on each push instead of piling up.
+  # Every agent's report goes into one comment, a new one on each run.
   comment:
     needs: [plan, review]
     if: ${{ always() && !github.event.pull_request.draft }}
@@ -240,7 +240,6 @@ jobs:
       - name: Post the comment
         env:
           GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
-          APP_SLUG: ${{ steps.app.outputs.app-slug }}
           AGENTS: ${{ needs.plan.outputs.agents }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
@@ -308,9 +307,7 @@ jobs:
             verdict="❌ **Not ready**"
           fi
 
-          marker="<!-- argus -->"
           {
-            echo "$marker"
             echo "$verdict · $summary"
             [ -n "${failed:-}" ] && echo && echo "Failed: $failed"
             [ "${pending:-0}" != 0 ] && echo && echo "Still running after 10 minutes: $pending checks."
@@ -320,23 +317,6 @@ jobs:
           } > comment.md
           cat comment.md >> "$GITHUB_STEP_SUMMARY"
 
-          # One comment per PR, edited on each push instead of piling up. An Argus comment from
-          # another poster, such as github-actions before the app was set up, is replaced so the
-          # comment shows the current name and avatar.
-          me="${APP_SLUG:-github-actions}[bot]"
-          id=""
-          while read -r cid login; do
-            if [ "$login" = "$me" ] && [ -z "$id" ]; then
-              id=$cid
-            else
-              gh api -X DELETE "repos/$REPO/issues/comments/$cid" > /dev/null \
-                || echo "::warning::Couldn't delete the old Argus comment $cid."
-            fi
-          done < <(gh api "repos/$REPO/issues/$PR/comments" --paginate \
-            --jq ".[] | select(.body | startswith(\"$marker\")) | \"\(.id) \(.user.login)\"")
+          # A new comment on each run, so the PR keeps a history of what failed and what got fixed.
           body=$(jq -Rs '{body: .}' < comment.md)
-          if [ -n "$id" ]; then
-            gh api -X PATCH "repos/$REPO/issues/comments/$id" --input - <<< "$body" > /dev/null
-          else
-            gh api -X POST "repos/$REPO/issues/$PR/comments" --input - <<< "$body" > /dev/null
-          fi
+          gh api -X POST "repos/$REPO/issues/$PR/comments" --input - <<< "$body" > /dev/null
