@@ -69,7 +69,7 @@ Done:
 - The review agents have run on a real PR. Each used the right model and effort, took 5 to 6 turns, and together they cost about $0.60 at API prices. They found two fair low-severity issues.
 - Bun repos (`bun.lock` or `bun.lockb`) work in all three workflows.
 - `scripts/add-repo.sh` sets up a new repo in one command once the app is installed on it.
-- Reviews post one combined, terse comment, with no inline comments, and can post as your own GitHub App. The comment gives a merge-ready verdict from the PR's checks and the review findings.
+- Reviews post one combined, terse comment, with no inline comments, and can post as your own GitHub App. The comment gives a merge-ready verdict from the PR's checks and the review findings. Each run posts a new comment instead of editing the last one, so the PR shows what failed and when it got fixed.
 
 Not done yet, in order:
 
@@ -103,7 +103,7 @@ Runs the repo's own `package.json` scripts, one check per script. Scripts the re
 
 ### `agent-review.yml`
 
-Runs one Claude review per agent in parallel, then posts one short PR comment, edited on each push:
+Runs one Claude review per agent in parallel, then posts one short PR comment. Each run posts a new comment, so the PR keeps a history of what failed and whether it got fixed:
 
 ```
 ✅ **Merge ready** · 9/9 checks passed · review: no findings
